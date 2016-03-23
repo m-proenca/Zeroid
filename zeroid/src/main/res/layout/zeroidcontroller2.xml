@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/controller2"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    
+    <com.zyon.zeroid.Multitouch.MultitouchView
+		android:id="@+id/joysticview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/txtStatus1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|top"
+        android:textColor="#ca2559" />
+</RelativeLayout>

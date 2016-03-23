@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    tools:context="com.zyon.zeroid.Main" >
+
+	<TextView
+        android:id="@+id/tvMainTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:text="@string/main_title"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <!--
+    <Button
+        android:id="@+id/btnBot"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_marginLeft="30dp"
+        android:layout_below="@+id/tvMainTitle"
+        android:layout_alignParentLeft="true"
+        android:background="@drawable/tachikoma200x200" />
+	
+    <Button
+        android:id="@+id/btnControl"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_marginRight="30dp"
+        android:layout_below="@+id/tvMainTitle"
+        android:layout_alignParentRight="true"
+        android:background="@drawable/joystick200x200" />
+    -->
+
+    <ImageView
+        android:id="@+id/imgCenter"
+        android:layout_width="25dp"
+        android:layout_height="25dp"
+        android:layout_centerVertical="true"
+        android:layout_centerHorizontal="true"
+        android:src="@drawable/right_left_arrow" />
+
+    <Button
+        android:id="@+id/btnRobot"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_centerVertical="true"
+        android:layout_toLeftOf="@+id/imgCenter"
+        android:background="@drawable/button_shape"
+        android:drawableTop="@drawable/tachikoma180x180"
+        android:gravity="center_horizontal" />
+
+    <Button
+        android:id="@+id/btnController"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_centerVertical="true"
+        android:layout_toRightOf="@+id/imgCenter"
+        android:background="@drawable/button_shape"
+        android:drawableTop="@drawable/joystick180x180"
+        android:gravity="center_horizontal" />
+
+    <!--<com.zyon.zeroid.Multitouch.MultitouchViewExample-->
+        <!--android:id="@+id/joysticview"-->
+        <!--android:layout_width="match_parent"-->
+        <!--android:layout_height="match_parent" />-->
+
+</RelativeLayout>

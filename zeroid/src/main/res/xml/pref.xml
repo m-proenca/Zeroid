@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">  
+	<PreferenceCategory
+ 		android:key="pref_Controller"
+ 		android:title="Controller settings"
+ 		android:summary="Controller settings">
+		
+		<EditTextPreference
+			 android:key="robot_address"
+			 android:title="Robot IP address"
+			 android:summary="Robot Socket IP Address"
+			 android:defaultValue="@+string/def_robot_address" />
+
+		<EditTextPreference
+			 android:key="cam_address"
+			 android:title="Camera IP Address"
+			 android:summary="Mjpeg IP Camera Address"
+			 android:defaultValue="@+string/def_cam_address" />
+		
+		<EditTextPreference
+			 android:key="cam_ctrl_address"
+			 android:title="IP Camera Control Address"
+			 android:summary="Camera Control pan/tilt Address"
+			 android:defaultValue="@+string/def_cam_ctrl_address" />
+
+        <ListPreference
+            android:key="mcu_com_prot"
+            android:title="Serial Communication Protocol"
+            android:summary="Protocol to send control to MCU over serial"
+            android:entries="@array/mcu_com_prot_descr"
+            android:entryValues="@array/mcu_com_prot_values"
+            android:defaultValue="@+string/def_mcu_com_prot" />
+
+        <EditTextPreference
+            android:key="send_interval"
+            android:title="Send Interval"
+            android:summary="Interval to send recursively or to limit sending (delay)"
+            android:inputType="number"
+            android:defaultValue="@+string/def_send_interval" />
+
+		<EditTextPreference
+			android:key="stick_size"
+			android:title="joystick size"
+			android:summary="Divisor value, Example: screenHeight / '3'"
+			android:inputType="number"
+			android:defaultValue="@+string/def_stick_size" />
+
+		stick_size
+	</PreferenceCategory>
+	
+	<PreferenceCategory
+ 		android:key="pref_Robot"
+ 		android:title="Robot Settings"
+ 		android:summary="Robot Settings">    
+	    
+		<ListPreference
+			android:key="mcu_conn_type"
+			android:title="MCU Connection Type"
+			android:summary="Select connection type with MCU"
+			android:entries="@array/mcu_conn_descr"
+			android:entryValues="@array/mcu_conn_values"
+			android:defaultValue="@+string/def_mcu_conn_type" />
+
+		<Preference
+			android:title="Bluetooth Device"
+			android:key="btn_bluetooth"
+			android:summary="Select/Scan Bluetooth Device by name"/>
+
+		<EditTextPreference
+	        android:key="bt_address"
+	        android:title="Bluetooth MAC Address"
+	        android:summary="Bluetooth MAC Address"
+	        android:defaultValue="@+string/def_bt_address" />
+		
+		<ListPreference
+	        android:key="usb_device"
+	        android:title="USB Device"
+	        android:defaultValue = "@+string/def_usb_device" />
+
+        <EditTextPreference
+            android:key="cam_port"
+            android:title="Camera Server port"
+            android:inputType="number"
+            android:defaultValue="@+string/def_cam_port" />
+
+		<ListPreference
+	        android:key="cam_index"
+	        android:title="Camera"
+	        android:defaultValue ="@+string/def_cam_index" />
+
+	    <ListPreference
+	        android:key="cam_size"
+	        android:title="JPEG size"
+            android:defaultValue ="@+string/def_cam_size" />
+	    
+	    <EditTextPreference
+	        android:key="cam_quality"
+	        android:title="JPEG quality"
+	        android:inputType="number"
+	        android:defaultValue="@+string/def_cam_quality" />
+
+		<CheckBoxPreference
+			android:key="cam_preview"
+			android:title="Camera Preview"
+			android:summary="Show Camera Preview (needed for last android versions)"
+            android:defaultValue="@+string/def_cam_preview"/>
+
+	</PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="pref_General"
+        android:title="General Settings"
+        android:summary="Robot and Controller Settings">
+
+        <CheckBoxPreference
+            android:key="keep_screen_on"
+            android:title="Keep Screen On"
+            android:summary="Stay Alive"
+            android:defaultValue="@+string/def_keep_screen_on"/>
+
+        <CheckBoxPreference
+            android:key="ui_feedback"
+            android:title="UI Feedback"
+            android:summary="Show process messages (off to performance)"
+            android:defaultValue="@+string/def_ui_feedback" />
+
+    </PreferenceCategory>
+</PreferenceScreen>

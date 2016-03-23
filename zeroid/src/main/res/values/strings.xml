@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--  App -->
+    <string name="app_name">Zeroid</string>
+    <string name="main_title">Zeroid</string>
+    <string name="settings">Settings</string>
+
+    <string name="refreshing">Refreshing...</string>
+
+    <!--  DeviceListActivity -->
+    <string name="scanning">scanning for devices...</string>
+    <string name="select_device">select a device to connect</string>
+    <string name="none_paired">No devices have been paired</string>
+    <string name="none_found">No devices found</string>
+    <string name="title_paired_devices">Paired Devices</string>
+    <string name="title_other_devices">Other Available Devices</string>
+    <string name="button_scan">Scan for devices</string>
+
+    <!-- Settings -->
+	<!--><string name="default_cam_address"><![CDATA[http://trackfield.webcam.oregonstate.edu/axis-cgi/mjpg/video.cgi?resolution=800x600&amp%3bdummy=1333689998337]]></string>-->
+
+	<!-- Controller -->
+	<string name="def_robot_address"><![CDATA[192.168.43.1]]></string>
+	<string name="def_send_interval">300</string>
+
+	<string name="def_cam_address"><![CDATA[http://192.168.43.1:8080]]></string>
+	<string name="def_cam_ctrl_address"><![CDATA[http://192.168.43.1:8081/decoder_control.cgi?]]></string><!-- future feature -->
+
+    <string name="def_mcu_com_prot">2</string>
+    <string-array name="mcu_com_prot_values">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+    <string-array name="mcu_com_prot_descr">
+        <item>String LdRdLsRs</item>
+        <item>0x01 - byte[] Buttons</item>
+        <item>0x02 - byte[] LdRdLsRs</item>
+    </string-array>
+
+	<!-- Robot -->
+	<string name="def_mcu_conn_type">2</string>
+    <string-array name="mcu_conn_values">
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+    <string-array name="mcu_conn_descr">
+        <item>USB</item>
+        <item>Bluethoot</item>
+    </string-array>
+
+	<string name="def_bt_address"><![CDATA[07:12:05:16:69:44]]></string>
+    <string name="def_usb_device">0</string>
+
+    <string name="def_cam_port">8080</string>
+    <string name="def_cam_index">0</string>
+    <string name="def_cam_size">0</string>
+	<string name="def_cam_quality">60</string>
+    <bool name="def_cam_preview">false</bool>
+
+
+    <bool name="def_keep_screen_on">false</bool>
+    <bool name="def_ui_feedback">false</bool>
+    <string name="def_stick_size">3</string>
+
+</resources>

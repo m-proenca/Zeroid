@@ -1,0 +1,18 @@
+<resources>
+
+    <!-- Default screen margins, per the Android Design guidelines. -->
+    <dimen name="activity_horizontal_margin">16sp</dimen>
+    <dimen name="activity_vertical_margin">16sp</dimen>
+    
+    <!-- Bot Directions -->
+    <dimen name="direction_longest">72sp</dimen> 
+    <dimen name="direction_shortest">38sp</dimen>
+    
+    <!-- Controller Joy -->
+    <dimen name="controller_size">120sp</dimen>
+    <dimen name="controller_margin">30sp</dimen>
+    <dimen name="command_button_size">50sp</dimen>
+    <dimen name="command_button_margin">2sp</dimen>
+    <dimen name="command_button_layout_margin">5sp</dimen>
+    
+</resources>

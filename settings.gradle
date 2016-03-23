@@ -1,0 +1,3 @@
+include ':usbSerial'
+include ':androidsupportv7appcompat'
+include ':zeroid'
