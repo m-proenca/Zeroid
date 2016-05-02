@@ -124,5 +124,12 @@
             android:summary="Show process messages (off to performance)"
             android:defaultValue="@+string/def_ui_feedback" />
 
+		<EditTextPreference
+			android:key="heart_beat_timeout"
+			android:title="Heart Beat Timeout"
+			android:summary="connection check timeout in milleseconds, minimun is 2000, check interval is 1000"
+			android:inputType="number"
+			android:defaultValue="@+string/def_heart_beat_timeout" />
+
     </PreferenceCategory>
 </PreferenceScreen>
