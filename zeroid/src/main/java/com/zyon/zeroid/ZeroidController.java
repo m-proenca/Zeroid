@@ -51,8 +51,8 @@ public final class ZeroidController extends Activity {
     private TextView txtStatus;
     private TextView txtMessage;
 
-    private String CurrentIpAddress = "";
-    private String RemoteIP = "";
+    private String CurrentIp = "";
+    private String netStatus = "";
 
     boolean ui_feedback = false;
     boolean keep_screen_on = false;
@@ -72,10 +72,11 @@ public final class ZeroidController extends Activity {
     //region Net Declarations
     private NetThread netThread = null;
     private boolean netReconnect = true;
+    int heartBeat_TimeOut = 2000;
 
     boolean camConnected = false;
 
-    private String robot_address = "192.168.0.107";
+    private String robot_address = "192.168.43.1";
     //endregion
 
     //region Control
@@ -141,7 +142,7 @@ public final class ZeroidController extends Activity {
         super.onStart();
         Log.i(TAG, "onStart");
 
-        CurrentIpAddress = netThread.tryGetIpV4Address();
+        CurrentIp = netThread.tryGetIpV4Address();
         updateUI();
     }
 
@@ -204,19 +205,19 @@ public final class ZeroidController extends Activity {
                 if (D) Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
                 switch (msg.arg1) {
                     case NetThread.STATE_CONNECTED:
-                    RemoteIP = "Connected";
+                        netStatus = "Connected to " + netThread.getRemoteAddress();
                         updateUI();
                         break;
                     case NetThread.STATE_CONNECTING:
-                        RemoteIP = "Connecting";
+                        netStatus = "Connecting to " + netThread.getRemoteAddress();
                         updateUI();
                         break;
                     case NetThread.STATE_LISTEN:
-                        RemoteIP = "Listen";
+                        netStatus = "Listen";
                         updateUI();
                         break;
                     case NetThread.STATE_NONE:
-                        RemoteIP = "None";
+                        netStatus = "None";
                         updateUI();
                         netStop();
 
@@ -233,7 +234,7 @@ public final class ZeroidController extends Activity {
                 break;
             case NetThread.MESSAGE_READ:
                 String strMessage = (String) msg.obj;
-                //if (D) Log.i(TAG, "MESSAGE_READ: " + strMessage);
+                if (D) Log.i(TAG, "MESSAGE_READ: " + strMessage);
 
                 if (strMessage.contains("#PING")) {
                     NetMessage(strMessage);
@@ -241,17 +242,6 @@ public final class ZeroidController extends Activity {
                 }
                 else
                     NetMessage(strMessage);
-                break;
-
-            case NetThread.MESSAGE_INFO:
-                String texto = (String) msg.obj;
-
-                if(texto.contains("Connected to: /")) {
-                    RemoteIP = texto.replace("Connected to: /","");
-                    updateUI();
-                } else {
-                    txtMessage.setText(texto);
-                }
                 break;
             case NetThread.MESSAGE_TOAST:
                 Toast.makeText(getApplicationContext(), msg.getData().getString(TOAST),
@@ -297,7 +287,7 @@ public final class ZeroidController extends Activity {
 
     private void netStart() {
         if (netThread == null) {
-            netThread = new NetThread(netHandler, robot_address, 21111, 0);
+            netThread = new NetThread(netHandler, robot_address, 21111, heartBeat_TimeOut);
             netThread.setConnectionState(NetThread.STATE_CONNECTING);
             netThread.start();
         }
@@ -511,7 +501,7 @@ public final class ZeroidController extends Activity {
     }
 
     public void updateUI() {
-        txtStatus.setText("IP: " + CurrentIpAddress + " Remote: " + RemoteIP);
+        txtStatus.setText("IP: " + CurrentIp + " " + netStatus);
     }
     //endregion
 
@@ -530,6 +520,7 @@ public final class ZeroidController extends Activity {
 
         ui_feedback = mPrefs.getBoolean("ui_feedback", getResources().getBoolean(R.bool.def_ui_feedback));
         keep_screen_on = mPrefs.getBoolean("keep_screen_on", getResources().getBoolean(R.bool.def_keep_screen_on));
+        heartBeat_TimeOut = getPrefInt(mPrefs, "heart_beat_timeout", Integer.parseInt(getResources().getString(R.string.def_heart_beat_timeout)));
 
 //        Log.i(TAG,
 //                "mcu_com_prot" + String.valueOf(mcu_com_prot) + "\r\n" +
