@@ -26,7 +26,7 @@
 	<string name="def_cam_address"><![CDATA[http://192.168.43.1:8080]]></string>
 	<string name="def_cam_ctrl_address"><![CDATA[http://192.168.43.1:8081/decoder_control.cgi?]]></string><!-- future feature -->
 
-    <string name="def_mcu_com_prot">2</string>
+    <string name="def_mcu_com_prot">3</string>
     <string-array name="mcu_com_prot_values">
         <item>1</item>
         <item>2</item>
@@ -58,9 +58,9 @@
 	<string name="def_cam_quality">60</string>
     <bool name="def_cam_preview">false</bool>
 
-
+    <!-- General -->
     <bool name="def_keep_screen_on">false</bool>
     <bool name="def_ui_feedback">false</bool>
     <string name="def_stick_size">3</string>
-
+    <string name="def_heart_beat_timeout">3000</string>
 </resources>

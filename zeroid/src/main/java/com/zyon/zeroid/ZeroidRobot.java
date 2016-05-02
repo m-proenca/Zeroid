@@ -27,13 +27,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.util.Enumeration;
-import java.util.Locale;
 import java.util.Set;
-
-import org.apache.http.conn.util.InetAddressUtils;
 
 //import com.hoho.android.usbserial.driver.UsbSerialDriver;
 //import com.hoho.android.usbserial.driver.UsbSerialPort;
@@ -41,7 +35,6 @@ import org.apache.http.conn.util.InetAddressUtils;
 //import com.hoho.android.usbserial.util.HexDump;
 //import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
-import com.zyon.zeroid.Util.ByteExt;
 import com.zyon.zeroid.bt.BluetoothThread;
 import com.zyon.zeroid.bt.DeviceListActivity;
 import com.zyon.zeroid.camerastream.CameraStreamer;
@@ -67,11 +60,11 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 	private Button buttonRight;
 	private Button buttonLeft;
 
-	private String CurrentIpAddress = "";
-	private String btStatus = "None";
-    private String RemoteIP = "";
+	private String CurrentIp = "";
+	private String btStatus = "BT: None";
+    private String netStatus = "NET: None";
 
-	boolean UIFeedback = false;
+	boolean ui_feedback = false;
 	boolean Keep_Screen_On = false;
 
 	PowerManager.WakeLock wakeLock = null;
@@ -114,6 +107,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 	NetThread netThread = null;
 
 	private boolean netReconnect = true;
+	int heartBeat_TimeOut = 2000;
 	//endregion
 
 	//region Bluetooth Declarations
@@ -151,7 +145,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
         super.onStart();
         Log.i(TAG, "onStart");
 
-        CurrentIpAddress = netThread.tryGetIpV4Address();
+        CurrentIp = netThread.tryGetIpV4Address();
         updateUI();
     }
 
@@ -297,9 +291,10 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
         cameraIndex = getPrefInt(mPrefs, "cam_index", Integer.parseInt(getResources().getString(R.string.def_cam_index)));
         cameraPreview = mPrefs.getBoolean("cam_preview", getResources().getBoolean(R.bool.def_cam_preview));
         cameraPreviewSizeIndex = getPrefInt(mPrefs, "cam_size", Integer.parseInt(getResources().getString(R.string.def_cam_size)));
-        cameraJpegQuality = getPrefInt(mPrefs,"cam_quality", Integer.parseInt(getResources().getString(R.string.def_cam_quality)));
-		UIFeedback = mPrefs.getBoolean("ui_feedback", getResources().getBoolean(R.bool.def_ui_feedback));
+        cameraJpegQuality = getPrefInt(mPrefs, "cam_quality", Integer.parseInt(getResources().getString(R.string.def_cam_quality)));
+		ui_feedback = mPrefs.getBoolean("ui_feedback", getResources().getBoolean(R.bool.def_ui_feedback));
 		Keep_Screen_On = mPrefs.getBoolean("keep_screen_on", getResources().getBoolean(R.bool.def_keep_screen_on));
+		heartBeat_TimeOut = getPrefInt(mPrefs, "heart_beat_timeout", Integer.parseInt(getResources().getString(R.string.def_heart_beat_timeout)));
     }
     
     private final int getPrefInt(SharedPreferences mPrefs, final String key, final int defValue){
@@ -342,19 +337,19 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 				if (D) Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
 				switch (msg.arg1) {
 					case NetThread.STATE_CONNECTED:
-                        RemoteIP = "Connected";
+                        netStatus = "NET: Connected to " + netThread.getRemoteAddress();
 						updateUI();
 						break;
 					case NetThread.STATE_CONNECTING:
-                        RemoteIP = "Connecting";
+                        netStatus = "NET: Connecting to " + netThread.getRemoteAddress();
 						updateUI();
 						break;
 					case NetThread.STATE_LISTEN:
-                        RemoteIP = "Listen";
+                        netStatus = "NET: Listen";
 						updateUI();
 						break;
 					case NetThread.STATE_NONE:
-                        RemoteIP = "None";
+                        netStatus = "NET: None";
 						updateUI();
 						netStop();
 
@@ -371,28 +366,13 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 				break;
 			case NetThread.MESSAGE_READ:
 				String strMessage = (String) msg.obj;
-
 				if (D) Log.i(TAG, "MESSAGE_READ: " + strMessage);
-
-				if (strMessage.contains("PING"))
-					netSendString(strMessage.replace("PING", "PONG"));
-				else
-					NetMessageRead(strMessage);
+				NetMessageRead(strMessage);
 				break;
 			case NetThread.MESSAGE_CTRLCODE:
 				ControlCode_t ControlCode = (ControlCode_t) msg.obj;
                 sendToMicro(ControlCode.toBytes());
                 break;
-			case NetThread.MESSAGE_INFO:
-				String texto = (String) msg.obj;
-
-                if(texto.contains("Connected to: /")) {
-                    RemoteIP = texto.replace("Connected to: ","");
-                    updateUI();
-                } else {
-                    txtMessage.setText(texto);
-                }
-				break;
 			case NetThread.MESSAGE_TOAST:
 				Toast.makeText(getApplicationContext(), msg.getData().getString(TOAST),
 						Toast.LENGTH_SHORT).show();
@@ -421,29 +401,29 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 		else if(data.equals("#LEDON\n")) {
 			if(cameraStreamer != null)
 				cameraStreamer.LedOn();
-			if (UIFeedback)
+			if (ui_feedback)
 				txtMessage.setText("LED ON");
 		}
 		else if(data.equals("#LEDOFF\n")) {
 			if(cameraStreamer != null)
 				cameraStreamer.LedOff();
-			if (UIFeedback)
+			if (ui_feedback)
 				txtMessage.setText("LED OFF");
 		}
 		else if(data.equals("#FOCUS\n")) {
 			if(cameraStreamer != null)
 				cameraStreamer.autoFocus();
-			if (UIFeedback)
+			if (ui_feedback)
 				txtMessage.setText("FOCUS");
 		}
 		else if (data.length() >= 2) {
-			if (UIFeedback)
+			if (ui_feedback)
 				txtMessage.setText(data);
 
 			String Command = data.substring(0, 2);
 
 			if (Command.equals("#D(")){
-				if (UIFeedback) {
+				if (ui_feedback) {
 					direction_state = Integer.parseInt(data.substring(3, data.indexOf(',') -1));
 
 					switch (direction_state) {
@@ -500,7 +480,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 
 	private void netStart() {
 		if (netThread == null) {
-			netThread = new NetThread(netHandler,"",21111,0);
+			netThread = new NetThread(netHandler,"",21111, heartBeat_TimeOut);
 			netThread.setConnectionState(NetThread.STATE_LISTEN);
 			netThread.start();
 		}
@@ -567,7 +547,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 			case BluetoothThread.MESSAGE_STATE_CHANGE:
 				switch (msg.arg1) {
 					case BluetoothThread.STATE_CONNECTED:
-						btStatus = "Connected";
+						btStatus = "BT: Connected";
 
 //						btSendThread = new BtSendThread(this);
 //						btSendThread.start();
@@ -575,15 +555,15 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 						updateUI();
 						break;
 					case BluetoothThread.STATE_CONNECTING:
-						btStatus = "Connecting";
+						btStatus = "BT: Connecting";
 						updateUI();
 						break;
 					case BluetoothThread.STATE_LISTEN:
-						btStatus = "listen";
+						btStatus = "BT: Listen";
 						updateUI();
 						break;
 					case BluetoothThread.STATE_NONE:
-						btStatus = "None";
+						btStatus = "BT: None";
 						updateUI();
 						btStop();
 
@@ -600,15 +580,8 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 				break;
 			case BluetoothThread.MESSAGE_READ:
 				String strMessage = (String) msg.obj;
-				//if (D) Log.i(TAG, "MESSAGE_READ: " + strMessage);
+				if (D) Log.i(TAG, "MESSAGE_READ: " + strMessage);
 
-				if (strMessage.contains("PING"))
-					sendToMicro(strMessage.replace("PING","PONG") + "\n");
-
-				break;
-			case BluetoothThread.MESSAGE_INFO:
-				String strInfo = (String) msg.obj;
-				txtMessage.setText(strInfo);
 				break;
 			case BluetoothThread.MESSAGE_TOAST:
 				Toast.makeText(getApplicationContext(), msg.getData().getString(TOAST),
@@ -657,7 +630,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 			// Launch the DeviceListActivity to see devices and do scan
 //			Intent serverIntent = new Intent(this, DeviceListActivity.class);
 //			startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
-			btStatus = "OFF";
+			btStatus = "BT: OFF";
 			return;
 		}
 	}
@@ -682,7 +655,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
     }
 
     private void sendToMicro(String data){
-        if (UIFeedback)
+        if (ui_feedback)
             txtMessage.setText(data);
 
         if(mcu_conn_type == 1){
@@ -834,7 +807,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
     }
 
     public void updateUI(){
-		txtStatus.setText("IP: " + CurrentIpAddress + " BT: " + btStatus + " Client: " + RemoteIP);
+		txtStatus.setText("IP: " + CurrentIp + " " + netStatus + " " + btStatus);
     }
 	//endregion Block
     
