@@ -71,7 +71,7 @@ public final class ZeroidController extends Activity {
 
     //region Net Declarations
     private NetThread netThread = null;
-    private boolean netReconnect = true;
+    //private boolean netReconnect = true;
     int heartBeat_TimeOut = 2000;
 
     boolean camConnected = false;
@@ -122,19 +122,23 @@ public final class ZeroidController extends Activity {
 
         GetPreferences();
         CreateUI();
+
+        CurrentIp = netThread.tryGetIpV4Address();
+
+        netStart();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         Log.i(TAG, "onResume");
-
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                netStart();
-            }
-        }, 3000);
+//
+//        new Handler().postDelayed(new Runnable() {
+//            @Override
+//            public void run() {
+//                netStart();
+//            }
+//        }, 3000);
     }
 
     @Override
@@ -142,7 +146,6 @@ public final class ZeroidController extends Activity {
         super.onStart();
         Log.i(TAG, "onStart");
 
-        CurrentIp = netThread.tryGetIpV4Address();
         updateUI();
     }
 
@@ -174,7 +177,7 @@ public final class ZeroidController extends Activity {
 
         CameraView_Stop();
 
-        netReconnect = false;
+        netThread.setReconnect(false);
         netStop();
     }
     //endregion
@@ -219,17 +222,17 @@ public final class ZeroidController extends Activity {
                     case NetThread.STATE_NONE:
                         netStatus = "None";
                         updateUI();
-                        netStop();
-
-                        if (netReconnect) {
-                            new Handler().postDelayed(new Runnable() {
-                                @Override
-                                public void run() {
-                                    netStart();
-                                }
-                            }, 2000);
-                        }
-                        break;
+//                        netStop();
+//
+//                        if (netReconnect) {
+//                            new Handler().postDelayed(new Runnable() {
+//                                @Override
+//                                public void run() {
+//                                    netStart();
+//                                }
+//                            }, 2000);
+//                        }
+//                        break;
                 }
                 break;
             case NetThread.MESSAGE_READ:
@@ -287,7 +290,7 @@ public final class ZeroidController extends Activity {
 
     private void netStart() {
         if (netThread == null) {
-            netThread = new NetThread(netHandler, robot_address, 21111, heartBeat_TimeOut);
+            netThread = new NetThread(netHandler, robot_address, 21111, heartBeat_TimeOut, NetThread.STATE_CONNECTING);
             netThread.setConnectionState(NetThread.STATE_CONNECTING);
             netThread.start();
         }

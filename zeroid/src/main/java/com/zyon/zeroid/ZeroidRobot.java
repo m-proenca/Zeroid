@@ -105,8 +105,6 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 
 	//region Net Declarations
 	NetThread netThread = null;
-
-	private boolean netReconnect = true;
 	int heartBeat_TimeOut = 2000;
 	//endregion
 
@@ -138,6 +136,25 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 
         GetPreferences();
         CreateUI();
+
+		CurrentIp = netThread.tryGetIpV4Address();
+
+        netStart();
+
+		if (wakeLock == null) {
+			PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+			wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+					"MyWakelockTag");
+			wakeLock.acquire();
+		}
+
+		if (wifiLock == null) {
+			WifiManager wm = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+			wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "MyWifiLock");
+			if (!wifiLock.isHeld()) {
+				wifiLock.acquire();
+			}
+		}
 	}
 
     @Override
@@ -145,7 +162,6 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
         super.onStart();
         Log.i(TAG, "onStart");
 
-        CurrentIp = netThread.tryGetIpV4Address();
         updateUI();
     }
 
@@ -154,30 +170,15 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
         super.onResume();
         Log.i(TAG, "onResume");
 
-        if (wakeLock == null) {
-            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
-                    "MyWakelockTag");
-            wakeLock.acquire();
-        }
+//        if (netReconnect) netStart();
 
-        if (wifiLock == null) {
-            WifiManager wm = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-            wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "MyWifiLock");
-            if (!wifiLock.isHeld()) {
-                wifiLock.acquire();
-            }
-        }
-
-        if (netReconnect) netStart();
-
-        if (mcu_conn_type == 1) {
-            setFilters();  // Start listening notifications from UsbService
-            startService(UsbService.class, usbConnection, null); // Start UsbService(if it was not started before) and Bind it
-        } else {
-            if (btReconnect)
-                btStart();
-        }
+//        if (mcu_conn_type == 1) {
+//            setFilters();  // Start listening notifications from UsbService
+//            startService(UsbService.class, usbConnection, null); // Start UsbService(if it was not started before) and Bind it
+//        } else {
+//            if (btReconnect)
+//                btStart();
+//        }
     }
 
     //@Override
@@ -192,6 +193,19 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
     public void onStop() {
         super.onStop();
         Log.i(TAG, "onStop");
+    }
+
+    @Override
+	protected void onDestroy() {
+		super.onDestroy();
+		Log.i(TAG, "onDestroy");
+
+		netThread.setReconnect(false);
+		netStop();
+
+		btReconnect = false;
+		btStop();
+
 		try{
 			if(wakeLock != null)
 				wakeLock.release();
@@ -201,24 +215,12 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 		catch (final RuntimeException e){
 		}
 
-        try{
-            unregisterReceiver(mUsbReceiver);
-            unbindService(usbConnection);
-        }
-        catch (final RuntimeException e){
-        }
-    }
-
-    @Override
-	protected void onDestroy() {
-		super.onDestroy();
-		Log.i(TAG, "onDestroy");
-
-		netReconnect = false;
-		netStop();
-
-		btReconnect = false;
-		btStop();
+		try{
+			unregisterReceiver(mUsbReceiver);
+			unbindService(usbConnection);
+		}
+		catch (final RuntimeException e){
+		}
 	}
 
 	@Override
@@ -336,33 +338,63 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 			case NetThread.MESSAGE_STATE_CHANGE:
 				if (D) Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
 				switch (msg.arg1) {
-					case NetThread.STATE_CONNECTED:
+                    case NetThread.STATE_CONNECTED:
                         netStatus = "NET: Connected to " + netThread.getRemoteAddress();
-						updateUI();
-						break;
-					case NetThread.STATE_CONNECTING:
+                        updateUI();
+                        break;
+                    case NetThread.STATE_CONNECTING:
                         netStatus = "NET: Connecting to " + netThread.getRemoteAddress();
-						updateUI();
-						break;
-					case NetThread.STATE_LISTEN:
+                        updateUI();
+                        break;
+                    case NetThread.STATE_LISTEN:
                         netStatus = "NET: Listen";
-						updateUI();
-						break;
-					case NetThread.STATE_NONE:
+                        updateUI();
+                        break;
+                    case NetThread.STATE_NONE:
                         netStatus = "NET: None";
-						updateUI();
-						netStop();
-
-						if (netReconnect) {
-							new Handler().postDelayed(new Runnable() {
-								@Override
-								public void run() {
-									netStart();
-								}
-							}, 2000);
-						}
-						break;
-				}
+                        updateUI();
+//                        netStop();
+//
+////						if (netReconnect) {
+////							new Handler().postDelayed(new Runnable() {
+////								@Override
+////								public void run() {
+////									netStart();
+////								}
+////							}, 2000);
+////						}
+////TODO: tests
+//                        long CloseTime = System.currentTimeMillis();
+//                        Log.i(TAG, "waiting for netThread isAlive return false");
+//                        if(netThread != null) {
+//                            while (netThread.isAlive()) {
+//                                if ((System.currentTimeMillis() - CloseTime) >= 3000L) {
+//                                    CloseTime = System.currentTimeMillis();
+//                                    Log.i(TAG, "netThread isAlive after 3 seconds, interrupting it");
+//
+//                                    try {
+//                                        netThread.sleep(0);
+//                                        netThread.interrupt();
+//                                        Log.i(TAG, "netThread killed");
+//                                    } catch (InterruptedException e) {
+//                                        e.printStackTrace();
+//                                    }
+//                                }
+//
+//                                try {
+//                                    Thread.sleep(5);
+//                                } catch (InterruptedException e) {
+//                                    if (D) Log.d(TAG, "InterruptedException");
+//                                }
+//                            }
+//
+//                            Log.i(TAG, "netThread wait ends");
+//							netThread = null;
+//                        }
+//
+//                        netStart();
+                        break;
+                }
 				break;
 			case NetThread.MESSAGE_READ:
 				String strMessage = (String) msg.obj;
@@ -480,7 +512,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 
 	private void netStart() {
 		if (netThread == null) {
-			netThread = new NetThread(netHandler,"",21111, heartBeat_TimeOut);
+			netThread = new NetThread(netHandler,"",21111, heartBeat_TimeOut,NetThread.STATE_LISTEN);
 			netThread.setConnectionState(NetThread.STATE_LISTEN);
 			netThread.start();
 		}

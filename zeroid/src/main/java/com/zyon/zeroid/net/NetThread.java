@@ -48,31 +48,34 @@ public class NetThread extends Thread {
 
     private ServerSocket serverSocket = null;
     private Socket socket = null;
+
     private InputStream inputStream = null;
     private OutputStream outputStream = null;
 
     private int SocketTimeout = 1000;
-    private int SocketAcceptTimeout = 3000;
-    private int SocketConnectTimeout = 3000;
+    private int SocketAcceptTimeout = 0;
+    private int SocketConnectTimeout = 5000;
+    private boolean SocketReconnect = true;
 
-    private int SocketState = STATE_NONE;
+    private int socketState = STATE_NONE;
+    private int socketMode = STATE_NONE;
     private boolean thread_run = true;
 
-    private int countValue = 0;
     private recursivelyThreadClass recursivelyThread = null;
 
-    private int heartBeat_Interval = 1000;
+    private int heartBeat_Interval = 2000;
     private int heartBeat_TimeOut = 3000;
     private long heartBeat_LastRead = 0L;
     private Object threadLock = null;
 
-    public NetThread(Handler handler, String Address, int Port, int HeartBeatTimeOut) {
+    public NetThread(Handler handler, String Address, int Port, int HeartBeatTimeOut, int SocketMode) {
         threadLock = new Object();
 
         mHandler = handler;
         address = Address;
         port = Port;
         heartBeat_TimeOut = HeartBeatTimeOut;
+        socketMode = SocketMode;
     }
 
     @Override
@@ -81,14 +84,23 @@ public class NetThread extends Thread {
         if (D) Log.d(TAG, "netThread start");
 
         try {
-            if (SocketState == STATE_LISTEN)
-                netListen();
+            while(thread_run) {
+                if (socketState == STATE_LISTEN)
+                    netListen();
 
-            if (SocketState == STATE_CONNECTING)
-                netConnecting();
+                if (socketState == STATE_CONNECTING)
+                    netConnecting();
 
-            if (SocketState == STATE_CONNECTED)
-                netConnected();
+                if (socketState == STATE_CONNECTED)
+                    netConnected();
+
+                try {
+                    Thread.sleep(10);
+                }
+                catch (InterruptedException e) {
+                    if (D) Log.d(TAG, "InterruptedException");
+                }
+            }
         }
         finally {
             if (recursivelyThread != null) {
@@ -146,54 +158,45 @@ public class NetThread extends Thread {
             return;
         }
 
-        countValue = 0;
-        while (thread_run && SocketState == STATE_LISTEN) {
-            countValue++;
-
-            if (D) Log.d(TAG, "Listen: " + countValue);
+        while (thread_run && socketState == STATE_LISTEN) {
+            if (D) Log.d(TAG, "Listen");
 
             try {
                 // This is a blocking call and will only return on a
                 // successful connection or timeout on InterruptedIOException
                 socket = serverSocket.accept();
                 setConnectionState(STATE_CONNECTED);
-                serverSocket.close(); //no new connections is desired
+                serverSocket.close();
 
-                address =  socket.getInetAddress().toString();
+                address =  socket.getInetAddress().getHostAddress();
             } catch (IOException e) {
                 //ignore Exceptions and try again
             }
-
-            if (countValue > 9)
-                setConnectionState(STATE_NONE);
         }
     }
 
     private void netConnecting() {
         if (D) Log.d(TAG, "netThread connecting");
-        socket = new Socket();
 
-        countValue = 0;
-        while (thread_run && SocketState == STATE_CONNECTING) {
-            countValue++;
-            if (D) Log.d(TAG, "Connecting: " + countValue);
-
+        while (thread_run && socketState == STATE_CONNECTING) {
+            if (D) Log.d(TAG, "Connecting...");
             try {
                 // This is a blocking call and will only return on a
                 // successful connection or an exception
+                socket = new Socket();
                 socket.connect((new InetSocketAddress(InetAddress.getByName(address), port)), SocketConnectTimeout);
-
                 setConnectionState(STATE_CONNECTED);
-
-                address = socket.getInetAddress().toString();
                 break;
-            } catch (IOException e) {
+            } catch (IOException ex) {
                 //do nothing, try again
-            }
-
-            if (countValue > 9) {
-                setConnectionState(STATE_NONE);
-                break;
+                if (D) Log.d(TAG, "IOException" + ex);
+                try { Thread.sleep(250); }
+                catch (InterruptedException e) {}
+            } catch (IllegalArgumentException ex){
+                //do nothing, try again
+                if (D) Log.d(TAG, "IllegalArgumentException" + ex);
+                try { Thread.sleep(250); }
+                catch (InterruptedException e) {}
             }
         }
     }
@@ -230,7 +233,7 @@ public class NetThread extends Thread {
         byte CharFound = 0;
         int SizeOfDescriptor = 10;
 
-        while (thread_run && SocketState == STATE_CONNECTED) {
+        while (thread_run && socketState == STATE_CONNECTED) {
             try {
                 //inputStream.read() will block the thread until receive or timeout
                 bytes = inputStream.read(buffer);
@@ -439,6 +442,18 @@ public class NetThread extends Thread {
         }
     }
 
+    public boolean getReconnect(){
+        synchronized (threadLock) {
+            return SocketReconnect;
+        }
+    }
+
+    public void setReconnect(boolean Value){
+        synchronized (threadLock) {
+            SocketReconnect = Value;
+        }
+    }
+
     public synchronized void close() {
         if (D) Log.d(TAG, "netThread Close Command");
         thread_run = false;
@@ -553,15 +568,21 @@ public class NetThread extends Thread {
     }
 
     public void setConnectionState(int state) {
-        if (D) Log.d(TAG, "setState() " + SocketState + " -> " + state);
-        SocketState = state;
+        if (socketState != state) {
+            if (state == STATE_NONE && SocketReconnect == true) {
+                state = socketMode;
+            }
 
-        // Give the new state to the Handler so the UI Activity can update
-        mHandler.obtainMessage(MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
+            if (D) Log.d(TAG, "setState() " + socketState + " -> " + state);
+            socketState = state;
+
+            // Give the new state to the Handler so the UI Activity can update
+            mHandler.obtainMessage(MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
+        }
     }
 
     public int getConnectionState() {
-        return SocketState;
+        return socketState;
     }
 
     public String getRemoteAddress(){
