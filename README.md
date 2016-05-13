@@ -1,6 +1,6 @@
 # ZeroidV2 WIP (work in progress)
 
-An Hobby Android application created to control a rover over wifi and see its camera;
+An Hobby Android application created to control a tank over wifi and see its camera;
 
 This application that acts as robot or controller:
 

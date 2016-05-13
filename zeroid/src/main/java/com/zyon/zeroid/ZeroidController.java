@@ -72,7 +72,7 @@ public final class ZeroidController extends Activity {
     //region Net Declarations
     private NetThread netThread = null;
     //private boolean netReconnect = true;
-    int heartBeat_TimeOut = 2000;
+    int heartBeat_TimeOut = 3000;
 
     boolean camConnected = false;
 

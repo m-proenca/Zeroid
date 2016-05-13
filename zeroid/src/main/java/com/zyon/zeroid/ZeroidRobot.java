@@ -130,7 +130,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 	@Override
     protected void onCreate(final Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
-        Log.i(TAG, "onCreate");
+        if(D) Log.i(TAG, "onCreate");
 
         usbSerialHandler = new UsbSerialHandler(this);
 
@@ -160,7 +160,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
     @Override
 	protected void onStart(){
         super.onStart();
-        Log.i(TAG, "onStart");
+        if(D) Log.i(TAG, "onStart");
 
         updateUI();
     }
@@ -168,7 +168,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
     @Override
     protected void onResume() {
         super.onResume();
-        Log.i(TAG, "onResume");
+        if(D) Log.i(TAG, "onResume");
 
 //        if (netReconnect) netStart();
 
@@ -186,19 +186,19 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
     @Override
     public synchronized void onPause() {
         super.onPause();
-        Log.i(TAG, "onPause");
+        if(D) Log.i(TAG, "onPause");
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        Log.i(TAG, "onStop");
+        if(D) Log.i(TAG, "onStop");
     }
 
     @Override
 	protected void onDestroy() {
 		super.onDestroy();
-		Log.i(TAG, "onDestroy");
+        if(D) Log.i(TAG, "onDestroy");
 
 		netThread.setReconnect(false);
 		netStop();
@@ -262,7 +262,7 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
     //region Surface
     @Override
     public void surfaceCreated(final SurfaceHolder holder) {
-		Log.i(TAG, "surfaceCreated");
+        if(D) Log.i(TAG, "surfaceCreated");
 		if(cameraConnect){
 			tryStartCameraStreamer();
 		}
@@ -270,13 +270,13 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
     
     @Override
     public void surfaceDestroyed(final SurfaceHolder holder) {
-		Log.i(TAG, "surfaceDestroyed");
+        if(D) Log.i(TAG, "surfaceDestroyed");
     	ensureCameraStreamerStopped();
     }
     
     @Override
     public void surfaceChanged(final SurfaceHolder holder, final int format, final int width, final int height){
-    	Log.i(TAG, "surfaceChanged");
+        if(D) Log.i(TAG, "surfaceChanged");
     }
     //endregion Surface
     
@@ -353,46 +353,16 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
                     case NetThread.STATE_NONE:
                         netStatus = "NET: None";
                         updateUI();
-//                        netStop();
-//
-////						if (netReconnect) {
-////							new Handler().postDelayed(new Runnable() {
-////								@Override
-////								public void run() {
-////									netStart();
-////								}
-////							}, 2000);
-////						}
-////TODO: tests
-//                        long CloseTime = System.currentTimeMillis();
-//                        Log.i(TAG, "waiting for netThread isAlive return false");
-//                        if(netThread != null) {
-//                            while (netThread.isAlive()) {
-//                                if ((System.currentTimeMillis() - CloseTime) >= 3000L) {
-//                                    CloseTime = System.currentTimeMillis();
-//                                    Log.i(TAG, "netThread isAlive after 3 seconds, interrupting it");
-//
-//                                    try {
-//                                        netThread.sleep(0);
-//                                        netThread.interrupt();
-//                                        Log.i(TAG, "netThread killed");
-//                                    } catch (InterruptedException e) {
-//                                        e.printStackTrace();
-//                                    }
-//                                }
-//
-//                                try {
-//                                    Thread.sleep(5);
-//                                } catch (InterruptedException e) {
-//                                    if (D) Log.d(TAG, "InterruptedException");
-//                                }
-//                            }
-//
-//                            Log.i(TAG, "netThread wait ends");
-//							netThread = null;
-//                        }
-//
-//                        netStart();
+
+                        if (netThread != null && netThread.isAlive()) {
+                            try {
+                                if (D) Log.i(TAG, "join netThread");
+
+                                netThread.join();
+                            } catch (InterruptedException e) {
+                                if (D) Log.e(TAG, "STATE_NONE", e);
+                            }
+                        }
                         break;
                 }
 				break;
@@ -502,11 +472,11 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 			}
 
 			else {
-				//Log.i(TAG, "Data >= 2 = UNKNOW: " + data);
+				if(D) Log.i(TAG, "Data >= 2 = UNKNOW: " + data);
 			}
 		}
 		else {
-			//Log.i(TAG, "Data UNKNOW: " + data);
+			if(D) Log.i(TAG, "Data UNKNOW: " + data);
 		}
 	}
 
@@ -520,28 +490,10 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 
 	private void netStop(){
 		if (netThread != null) {
-			netThread.close();
-
-//			long CloseTime = System.currentTimeMillis();
-//			Log.i(TAG, "waiting for netThread isAlive return false");
-//
-//			while (netThread.isAlive()){
-//				if((System.currentTimeMillis() - CloseTime) >= 3000L){
-//					CloseTime = System.currentTimeMillis();
-//					Log.i(TAG, "netThread isAlive after 3 seconds, interrupting it");
-//
-//					try {
-//						netThread.sleep(10);
-//						netThread.interrupt();
-//					} catch (InterruptedException e) {
-//						e.printStackTrace();
-//					}
-//				}
-//			}
-//
-//			Log.i(TAG, "netStop concluded");
-			netThread = null;
-		}
+            //net close will return STATE_NONE
+            //that will wait for thread end
+            netThread.close();
+        }
 	}
 
 	private void netSendString(String data) {
@@ -597,17 +549,17 @@ public final class ZeroidRobot extends Activity implements SurfaceHolder.Callbac
 					case BluetoothThread.STATE_NONE:
 						btStatus = "BT: None";
 						updateUI();
-						btStop();
-
-						if (btReconnect) {
-							new Handler().postDelayed(new Runnable() {
-								@Override
-								public void run() {
-									btStart();
-								}
-							}, 3000);
-							break;
-						}
+//						btStop();
+//
+//						if (btReconnect) {
+//							new Handler().postDelayed(new Runnable() {
+//								@Override
+//								public void run() {
+//									btStart();
+//								}
+//							}, 3000);
+//							break;
+//						}
 				}
 				break;
 			case BluetoothThread.MESSAGE_READ:

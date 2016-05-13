@@ -53,12 +53,12 @@ public class NetThread extends Thread {
     private OutputStream outputStream = null;
 
     private int SocketTimeout = 1000;
-    private int SocketAcceptTimeout = 0;
+    private int SocketAcceptTimeout = 0; //listen until close event
     private int SocketConnectTimeout = 5000;
     private boolean SocketReconnect = true;
 
-    private int socketState = STATE_NONE;
-    private int socketMode = STATE_NONE;
+    private int State = STATE_NONE;
+    private int initialState = STATE_NONE;
     private boolean thread_run = true;
 
     private recursivelyThreadClass recursivelyThread = null;
@@ -68,14 +68,14 @@ public class NetThread extends Thread {
     private long heartBeat_LastRead = 0L;
     private Object threadLock = null;
 
-    public NetThread(Handler handler, String Address, int Port, int HeartBeatTimeOut, int SocketMode) {
+    public NetThread(Handler handler, String Address, int Port, int HeartBeatTimeOut, int InitialState) {
         threadLock = new Object();
 
         mHandler = handler;
         address = Address;
         port = Port;
         heartBeat_TimeOut = HeartBeatTimeOut;
-        socketMode = SocketMode;
+        initialState = InitialState;
     }
 
     @Override
@@ -85,13 +85,13 @@ public class NetThread extends Thread {
 
         try {
             while(thread_run) {
-                if (socketState == STATE_LISTEN)
+                if (thread_run && State == STATE_LISTEN)
                     netListen();
 
-                if (socketState == STATE_CONNECTING)
+                if (thread_run && State == STATE_CONNECTING)
                     netConnecting();
 
-                if (socketState == STATE_CONNECTED)
+                if (thread_run && State == STATE_CONNECTED)
                     netConnected();
 
                 try {
@@ -139,7 +139,7 @@ public class NetThread extends Thread {
                     serverSocket.close();
                     serverSocket = null;
                 } catch (IOException e2) {
-                    if (D) Log.e(TAG, "unable to close() socket", e2);
+                    if (D) Log.e(TAG, "unable to close() serverSocket", e2);
                 }
             }
             if (D) Log.d(TAG, "netThread end");
@@ -151,26 +151,25 @@ public class NetThread extends Thread {
 
         try {
             serverSocket = new ServerSocket(port);
-            serverSocket.setSoTimeout(SocketAcceptTimeout);
         } catch (IOException e) {
             if (D) Log.e(TAG, "Cannot create ServerSocket", e);
             setConnectionState(STATE_NONE);
             return;
         }
 
-        while (thread_run && socketState == STATE_LISTEN) {
-            if (D) Log.d(TAG, "Listen");
-
+        while (thread_run && State == STATE_LISTEN) {
             try {
                 // This is a blocking call and will only return on a
                 // successful connection or timeout on InterruptedIOException
+                serverSocket.setSoTimeout(SocketAcceptTimeout);
                 socket = serverSocket.accept();
                 setConnectionState(STATE_CONNECTED);
                 serverSocket.close();
 
                 address =  socket.getInetAddress().getHostAddress();
             } catch (IOException e) {
-                //ignore Exceptions and try again
+                if (D) Log.e(TAG, "Socket accept() exception", e);
+                setConnectionState(STATE_NONE);
             }
         }
     }
@@ -178,7 +177,7 @@ public class NetThread extends Thread {
     private void netConnecting() {
         if (D) Log.d(TAG, "netThread connecting");
 
-        while (thread_run && socketState == STATE_CONNECTING) {
+        while (thread_run && State == STATE_CONNECTING) {
             if (D) Log.d(TAG, "Connecting...");
             try {
                 // This is a blocking call and will only return on a
@@ -226,14 +225,7 @@ public class NetThread extends Thread {
         byte[] buffer = new byte[1024];
         int bytes = 0;
 
-        // Buffer for reading data
-        byte[] BufferData = new byte[32];
-        int BufferIndex = 0;
-        byte ByteLength = 0;
-        byte CharFound = 0;
-        int SizeOfDescriptor = 10;
-
-        while (thread_run && socketState == STATE_CONNECTED) {
+        while (thread_run && State == STATE_CONNECTED) {
             try {
                 //inputStream.read() will block the thread until receive or timeout
                 bytes = inputStream.read(buffer);
@@ -268,132 +260,7 @@ public class NetThread extends Thread {
                         int byteRead;
                         byteRead = buffer[streamIndex];
 
-                        //region Read Bytes
-                        if (BufferIndex > BufferData.length - 1) {
-                            if (D) Log.i(TAG, "Buffer overflow");
-
-                            BufferData = new byte[32];
-                            BufferIndex = 0;
-                            ByteLength = 0;
-                            CharFound = 0;
-                        }
-
-                        if (ByteLength == 0 && CharFound == 0) /*wait for sync byte*/ {
-                                    /*if char # (DEC 35, HEX 0x23) found, will wait for '\n'*/
-                            if ((byte) byteRead == 0x23 /*# - 35 - 0x23*/) {
-                                if (DebugFullInfo) Log.i(TAG, "CharFound" + "\r\n");
-                                CharFound = 1;
-                            }
-                                    /*if char SOH (DEC 1, HEX 0x21 found, will wait for SizeOfDescriptor*/
-                            else if ((byte) byteRead == 0x01) {
-                                if (DebugFullInfo) Log.i(TAG, "ByteLength" + "\r\n");
-                                ByteLength = 1;
-                            }
-                        }
-
-                        //prefix found start buffering
-                        if ((ByteLength != 0) | (CharFound != 0)) {
-                            BufferData[BufferIndex] = (byte) byteRead;
-
-                            if (DebugFullInfo)
-                                Log.i(TAG, "#read " + String.valueOf(BufferIndex));
-                        }
-
-                                /*wait for a full pack*/
-                        if (ByteLength != 0) {
-                            if (DebugFullInfo)
-                                Log.i(TAG, "ByteSync " + String.valueOf(BufferIndex));
-
-                            if (BufferIndex >= SizeOfDescriptor - 1) {
-                                if (D) Log.i(TAG, "read bytes");
-
-                                int byteStart = BufferIndex - (SizeOfDescriptor - 1);
-                                int crc = ((BufferData[BufferIndex] & 0xff) << 8) | (BufferData[BufferIndex - 1] & 0xff);
-                                int crccheck = ByteExt.getCRCMODBUS(BufferData, byteStart, SizeOfDescriptor - 2);
-
-                                if (DebugFullInfo) {
-                                    if (D)
-                                        Log.i(TAG, "from byte: " + String.valueOf(byteStart) + " to byte: " + String.valueOf(BufferIndex) + "\r\n");
-
-                                    StringBuilder sb = new StringBuilder(32);
-
-                                    int bytePos = 0;
-                                    for (int i = byteStart; i < SizeOfDescriptor + byteStart; i++) {
-                                        sb.append(" byte" + String.valueOf(bytePos) + ": " + ByteExt.printBits(BufferData[i]));
-                                        bytePos++;
-                                    }
-
-                                    sb.append(" CRC: " + String.valueOf(crc) + ", CRC check: " + String.valueOf(crccheck) + "\r\n");
-                                    if (D) Log.i(TAG, sb.toString());
-                                }
-
-                                //check for CRC
-                                if (crccheck == crc) {
-                                    ControlCode_t ControlCode = new ControlCode_t();
-
-                                    ControlCode.fromBytes(BufferData);
-
-                                    if (D) Log.i(TAG,
-                                            "headerType: " + String.valueOf(ControlCode.headerType) + "\n" +
-                                                    "Type: " + String.valueOf(ControlCode.Type) + "\n" +
-                                                    "b1: " + String.valueOf(ControlCode.b1) + "\n" +
-                                                    "b2: " + String.valueOf(ControlCode.b2) + "\n" +
-                                                    "b3: " + String.valueOf(ControlCode.b3) + "\n" +
-                                                    "b4: " + String.valueOf(ControlCode.b4) + "\n" +
-                                                    "b5: " + String.valueOf(ControlCode.b5) + "\n" +
-                                                    "b6: " + String.valueOf(ControlCode.b6) + "\n" +
-                                                    "CRC: " + String.valueOf((int) ControlCode.CRC) + "\n"
-                                    );
-
-                                    Message message = new Message();
-                                    message.what = MESSAGE_CTRLCODE;
-                                    message.obj = ControlCode;
-                                    mHandler.sendMessage(message);
-
-                                    BufferData = new byte[32];
-                                    BufferIndex = 0;
-                                    ByteLength = 0;
-                                    CharFound = 0;
-                                } else {
-                                    if (D) Log.i(TAG, "Invalid CRC");
-                                }
-                            }
-                        } else if (CharFound != 0) {
-                            if (DebugFullInfo)
-                                Log.i(TAG, "CharSync " + String.valueOf(BufferIndex));
-                            if ((char) BufferData[BufferIndex] == '\n') {
-                                if (DebugFullInfo) Log.i(TAG, "read chars" + "\r\n");
-
-                                final String readMessage = new String(BufferData, 0, BufferIndex + 1);
-
-                                if (DebugFullInfo) Log.i(TAG, readMessage + "\r\n");
-
-                                if (readMessage.contains("#PING"))
-                                    write(readMessage.replace("PING", "PONG"));
-                                else if (readMessage.contains("#chk\n")) {
-                                    if (D) Log.i(TAG, "MESSAGE_READ #chk");
-                                    write("#beat\n");
-                                } else if (readMessage.contains("#beat\n")) {
-                                    if (D) Log.i(TAG, "MESSAGE_READ #beat");
-                                } else {
-                                    Message message = new Message();
-                                    message.what = MESSAGE_READ;
-                                    message.obj = readMessage;
-                                    mHandler.sendMessage(message);
-                                }
-
-                                BufferData = new byte[32];
-                                BufferIndex = 0;
-                                ByteLength = 0;
-                                CharFound = 0;
-                            }
-                        }
-
-                        //set next buffer index
-                        if ((ByteLength != 0) | (CharFound != 0)) {
-                            BufferIndex++;
-                        }
-                        //endregion ReadBytes
+                        ReadBytes(byteRead);
                     }
                 }
             } catch (EOFException e) {
@@ -403,8 +270,7 @@ public class NetThread extends Thread {
             } catch (UnknownHostException e) {
                 if (D) Log.e(TAG, "ignored UnknownHostException", e);
             } catch (SocketTimeoutException e) {
-                //if (D) Log.e(TAG, "SocketTimeoutException", e);
-                //setConnectionState(STATE_NONE);
+                //Ignore Timeout Exception and try again
             } catch (SocketException e) {
                 if (D) Log.e(TAG, "SocketException", e);
                 setConnectionState(STATE_NONE);
@@ -442,6 +308,138 @@ public class NetThread extends Thread {
         }
     }
 
+    // Buffer for reading data
+    byte[] BufferData = new byte[32];
+    int BufferIndex = 0;
+    byte ByteLength = 0;
+    byte CharFound = 0;
+    int SizeOfDescriptor = 10;
+
+    private void ReadBytes(int byteRead){
+        if (BufferIndex > BufferData.length - 1) {
+            if (D) Log.i(TAG, "Buffer overflow");
+
+            BufferData = new byte[32];
+            BufferIndex = 0;
+            ByteLength = 0;
+            CharFound = 0;
+        }
+
+        if (ByteLength == 0 && CharFound == 0) /*wait for sync byte*/ {
+                                    /*if char # (DEC 35, HEX 0x23) found, will wait for '\n'*/
+            if ((byte) byteRead == 0x23 /*# - 35 - 0x23*/) {
+                if (DebugFullInfo) Log.i(TAG, "CharFound" + "\r\n");
+                CharFound = 1;
+            }
+                                    /*if char SOH (DEC 1, HEX 0x21 found, will wait for SizeOfDescriptor*/
+            else if ((byte) byteRead == 0x01) {
+                if (DebugFullInfo) Log.i(TAG, "ByteLength" + "\r\n");
+                ByteLength = 1;
+            }
+        }
+
+        //prefix found start buffering
+        if ((ByteLength != 0) | (CharFound != 0)) {
+            BufferData[BufferIndex] = (byte) byteRead;
+
+            if (DebugFullInfo) Log.i(TAG, "#read " + String.valueOf(BufferIndex));
+        }
+
+        /*wait for a full pack*/
+        if (ByteLength != 0) {
+            if (DebugFullInfo) Log.i(TAG, "ByteSync " + String.valueOf(BufferIndex));
+
+            if (BufferIndex >= SizeOfDescriptor - 1) {
+                if (D) Log.i(TAG, "read bytes");
+
+                int byteStart = BufferIndex - (SizeOfDescriptor - 1);
+                int crc = ((BufferData[BufferIndex] & 0xff) << 8) | (BufferData[BufferIndex - 1] & 0xff);
+                int crccheck = ByteExt.getCRCMODBUS(BufferData, byteStart, SizeOfDescriptor - 2);
+
+                if (DebugFullInfo) {
+                    Log.i(TAG, "from byte: " + String.valueOf(byteStart) + " to byte: " + String.valueOf(BufferIndex) + "\r\n");
+
+                    StringBuilder sb = new StringBuilder(32);
+
+                    int bytePos = 0;
+                    for (int i = byteStart; i < SizeOfDescriptor + byteStart; i++) {
+                        sb.append(" byte" + String.valueOf(bytePos) + ": " + ByteExt.printBits(BufferData[i]));
+                        bytePos++;
+                    }
+
+                    sb.append(" CRC: " + String.valueOf(crc) + ", CRC check: " + String.valueOf(crccheck) + "\r\n");
+                    Log.i(TAG, sb.toString());
+                }
+
+                //check for CRC
+                if (crccheck == crc) {
+                    ControlCode_t ControlCode = new ControlCode_t();
+
+                    ControlCode.fromBytes(BufferData);
+
+                    if (DebugFullInfo) Log.i(TAG,
+                            "headerType: " + String.valueOf(ControlCode.headerType) + "\n" +
+                                    "Type: " + String.valueOf(ControlCode.Type) + "\n" +
+                                    "b1: " + String.valueOf(ControlCode.b1) + "\n" +
+                                    "b2: " + String.valueOf(ControlCode.b2) + "\n" +
+                                    "b3: " + String.valueOf(ControlCode.b3) + "\n" +
+                                    "b4: " + String.valueOf(ControlCode.b4) + "\n" +
+                                    "b5: " + String.valueOf(ControlCode.b5) + "\n" +
+                                    "b6: " + String.valueOf(ControlCode.b6) + "\n" +
+                                    "CRC: " + String.valueOf((int) ControlCode.CRC) + "\n"
+                    );
+
+                    Message message = new Message();
+                    message.what = MESSAGE_CTRLCODE;
+                    message.obj = ControlCode;
+                    mHandler.sendMessage(message);
+
+                    BufferData = new byte[32];
+                    BufferIndex = 0;
+                    ByteLength = 0;
+                    CharFound = 0;
+                } else {
+                    if (D) Log.i(TAG, "Invalid CRC");
+                }
+            }
+        } else if (CharFound != 0) {
+            if (DebugFullInfo) Log.i(TAG, "CharSync " + String.valueOf(BufferIndex));
+            if ((char) BufferData[BufferIndex] == '\n') {
+                if (DebugFullInfo) Log.i(TAG, "read chars" + "\r\n");
+
+                final String readMessage = new String(BufferData, 0, BufferIndex + 1);
+
+                if (DebugFullInfo) Log.i(TAG, readMessage + "\r\n");
+
+                if (readMessage.contains("#PING"))
+                    write(readMessage.replace("PING", "PONG"));
+                else if (readMessage.contains("#chk\n")) {
+                    if (D) Log.i(TAG, "MESSAGE_READ #chk");
+                    write("#beat\n");
+                } else if (readMessage.contains("#beat\n")) {
+                    if (D) Log.i(TAG, "MESSAGE_READ #beat");
+                } else {
+                    Message message = new Message();
+                    message.what = MESSAGE_READ;
+                    message.obj = readMessage;
+                    mHandler.sendMessage(message);
+                }
+
+                BufferData = new byte[32];
+                BufferIndex = 0;
+                ByteLength = 0;
+                CharFound = 0;
+            }
+        }
+
+        //set next buffer index
+        if ((ByteLength != 0) | (CharFound != 0)) {
+            BufferIndex++;
+        }
+        //endregion ReadBytes
+
+    }
+
     public boolean getReconnect(){
         synchronized (threadLock) {
             return SocketReconnect;
@@ -454,10 +452,17 @@ public class NetThread extends Thread {
         }
     }
 
-    public synchronized void close() {
-        if (D) Log.d(TAG, "netThread Close Command");
-        thread_run = false;
-        setConnectionState(STATE_NONE);
+    public void close() {
+        synchronized (threadLock) {
+            if (D) Log.d(TAG, "netThread Close Command");
+            try {
+                serverSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            setConnectionState(STATE_NONE);
+            thread_run = false;
+        }
     }
 
     public void write(byte[] buffer) {
@@ -568,13 +573,13 @@ public class NetThread extends Thread {
     }
 
     public void setConnectionState(int state) {
-        if (socketState != state) {
+        if (State != state) {
             if (state == STATE_NONE && SocketReconnect == true) {
-                state = socketMode;
+                state = initialState;
             }
 
-            if (D) Log.d(TAG, "setState() " + socketState + " -> " + state);
-            socketState = state;
+            if (D) Log.d(TAG, "setState() " + State + " -> " + state);
+            State = state;
 
             // Give the new state to the Handler so the UI Activity can update
             mHandler.obtainMessage(MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
@@ -582,7 +587,7 @@ public class NetThread extends Thread {
     }
 
     public int getConnectionState() {
-        return socketState;
+        return State;
     }
 
     public String getRemoteAddress(){
